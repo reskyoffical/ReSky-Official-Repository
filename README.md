@@ -1,24 +1,37 @@
-<img width="128" height="128" alt="ckYjL" src="https://github.com/user-attachments/assets/05f08163-fce9-422d-bdd1-9f54a323ae8b" />
+# Skype Revival Online Backend (experimental)
 
-**What is the purpose of this project** 
+This package is a deployable, internet-facing compatibility backend for the Skype revival project. It provides HTTPS REST APIs, WebSocket presence/messaging, accounts, contacts and message history.
 
-It is a community revival project that came into my head after skype shutdown. 
-My goal is to make this accessible to the public and hopefully have this as a
-fully working and online project for many to enjoy! I am a college student so
-I will probably never get around to actually finishing it but hey, we can put
-the hard work in and make it work. If I ever do finish this project then 
-updates will be slow or inconsistent but i promise to try my best to update it!
+## Important
+This does **not** claim to be an official Microsoft Skype server, and it does not impersonate Microsoft's service. The original Skype 8.150 Windows client will not automatically connect to this server simply because it is online. A compatibility/redirect layer for that exact client still has to be identified and tested.
 
-**Will there be paid elements**
+## Deploy
+### Render
+1. Create a new Web Service from this folder/repository.
+2. Select Docker.
+3. Render will use `render.yaml` if the repository is connected as a Blueprint.
+4. The service exposes `/health` and `/docs`.
 
-Access will be paid as hosting an online server costs! I will be running purely from community donations however in near future access might be free!
+### Railway
+Deploy the folder as a Docker service. Railway supplies `PORT` automatically.
 
-**Will this project remain active**
+## Local
+Docker:
+`docker build -t skype-revival .`
+`docker run --rm -p 8080:8080 -e JWT_SECRET="replace-this" -v skype-data:/app/data skype-revival`
 
-Most likely!
+Then open `http://localhost:8080/docs`.
 
-**Will there be a discord or telegram incase of support or sneak peeks**
+## API
+POST `/api/v1/register`
+POST `/api/v1/login`
+GET `/api/v1/me`
+GET `/api/v1/users?q=name`
+POST `/api/v1/contacts`
+GET `/api/v1/contacts`
+POST `/api/v1/messages`
+GET `/api/v1/messages/{username}`
+WebSocket `/ws?token=...`
 
-Absolutely! Once version 1.0 is out to the public a discord server will be made public
-where I will be listening to the community feedback and on features i should add! Support
-will also be available in the discord server if you are having technical difficulties.
+## Next compatibility milestone
+Capture the network requests from the exact Skype 8.150.0.125 client in an isolated Windows test environment, then implement only the required compatibility endpoints/redirect behavior. The backend above is intentionally separate from Microsoft infrastructure.
