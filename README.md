@@ -1,5 +1,9 @@
 **What is the purpose of this project**
 
+
+<img width="128" height="128" alt="ckYjL" src="https://github.com/user-attachments/assets/05f08163-fce9-422d-bdd1-9f54a323ae8b" />
+
+
 It is a community revival project that came into my head after skype shutdown. 
 My goal is to make this accessible to the public and hopefully have this as a
 fully working and online project for many to enjoy! I am a college student so
