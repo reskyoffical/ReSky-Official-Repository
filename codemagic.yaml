@@ -1,0 +1,124 @@
+# Codemagic CI/CD for ReSky (iOS).
+# Three workflows:
+#   resky-check        – compiles for the Simulator with no signing (quick error check; NO .ipa)
+#   resky-unsigned-ipa – builds an UNSIGNED .ipa to download and sideload (Sideloadly / AltStore); no Apple account needed
+#   resky-release      – signs, builds an .ipa and uploads it to TestFlight (needs Apple Developer Program)
+#
+# Required Codemagic setup (Team/App settings — see README.md, "Codemagic"):
+#   • Environment variable group "resky_config":
+#       SUPABASE_HOST      e.g. abcd1234.supabase.co   (host only — no https://)
+#       SUPABASE_ANON_KEY  your project's anon / publishable key
+#   • App Store Connect API key integration named "ReSky ASC"   (release workflow only)
+#   • An iOS Distribution certificate in Code signing identities  (release workflow only)
+
+definitions:
+  scripts:
+    - &install_xcodegen
+      name: Install XcodeGen
+      script: brew install xcodegen
+    - &write_config
+      name: Write backend config
+      script: |
+        if [ -z "$SUPABASE_HOST" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+          echo "⚠️  SUPABASE_HOST / SUPABASE_ANON_KEY not set — the app will show 'Backend not configured'."
+        fi
+        HOST="${SUPABASE_HOST#https://}"; HOST="${HOST%/}"
+        cat > ReSky/Config/Secrets.xcconfig <<XC
+        SUPABASE_HOST = ${HOST:-not-configured.invalid}
+        SUPABASE_ANON_KEY = ${SUPABASE_ANON_KEY:-not-configured}
+        XC
+    - &generate_project
+      name: Generate Xcode project
+      script: |
+        xcodegen generate
+        xcodebuild -resolvePackageDependencies -project ReSky.xcodeproj -scheme ReSky
+
+workflows:
+  resky-check:
+    name: ReSky – compile check (Simulator, unsigned)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      xcode: latest
+      groups:
+        - resky_config
+    scripts:
+      - *install_xcodegen
+      - *write_config
+      - *generate_project
+      - name: Build for Simulator
+        script: |
+          set -o pipefail
+          xcodebuild build \
+            -project ReSky.xcodeproj -scheme ReSky -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
+    artifacts:
+      - /tmp/xcodebuild_logs/*.log
+
+  resky-unsigned-ipa:
+    name: ReSky – unsigned IPA (sideload)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      xcode: latest
+      groups:
+        - resky_config
+    scripts:
+      - *install_xcodegen
+      - *write_config
+      - *generate_project
+      - name: Build unsigned .ipa
+        script: |
+          set -e
+          xcodebuild archive \
+            -project ReSky.xcodeproj -scheme ReSky -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/ReSky.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS=""
+          rm -rf build/ipa && mkdir -p build/ipa/Payload
+          cp -R build/ReSky.xcarchive/Products/Applications/ReSky.app build/ipa/Payload/
+          cd build/ipa && zip -qry ReSky-unsigned.ipa Payload
+          ls -la ReSky-unsigned.ipa
+    artifacts:
+      - build/ipa/ReSky-unsigned.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+  resky-release:
+    name: ReSky – TestFlight release
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    integrations:
+      app_store_connect: ReSky ASC
+    environment:
+      xcode: latest
+      groups:
+        - resky_config
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.oopsware.resky
+      vars:
+        APP_STORE_APPLE_ID: 0000000000   # ← replace with your app's Apple ID from App Store Connect
+    scripts:
+      - *install_xcodegen
+      - *write_config
+      - *generate_project
+      - name: Use signing profiles
+        script: xcode-project use-profiles
+      - name: Set build number
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          agvtool new-version -all $((LATEST + 1))
+      - name: Build signed .ipa
+        script: |
+          xcode-project build-ipa \
+            --project ReSky.xcodeproj \
+            --scheme ReSky
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

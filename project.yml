@@ -1,0 +1,107 @@
+# XcodeGen spec — Codemagic runs `xcodegen generate` to create ReSky.xcodeproj.
+# Locally: `brew install xcodegen && xcodegen generate`
+name: ReSky
+options:
+  bundleIdPrefix: com.oopsware
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: en-GB
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.20.0
+  LiveKit:
+    url: https://github.com/livekit/client-sdk-swift
+    from: 2.0.0
+
+settings:
+  base:
+    MARKETING_VERSION: 1.0.0
+    CURRENT_PROJECT_VERSION: 1
+    VERSIONING_SYSTEM: apple-generic
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+
+targets:
+  ReSky:
+    type: application
+    platform: iOS
+    sources:
+      - path: ReSky
+        excludes:
+          - "Config/**"
+    configFiles:
+      Debug: ReSky/Config/Base.xcconfig
+      Release: ReSky/Config/Base.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.oopsware.resky
+        PRODUCT_NAME: ReSky
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+        SUPPORTS_MACCATALYST: NO
+    entitlements:
+      path: ReSky/ReSky.entitlements
+      properties:
+        aps-environment: production
+    info:
+      path: ReSky/Info.plist
+      properties:
+        CFBundleDisplayName: ReSky
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        SupabaseHost: $(SUPABASE_HOST)
+        SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+        CFBundleURLTypes:
+          - CFBundleURLName: com.oopsware.resky.auth
+            CFBundleURLSchemes: [resky]
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIBackgroundModes: [audio, remote-notification]
+        UIApplicationSupportsIndirectInputEvents: true
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: ReSky uses the camera for video calls and to take photos you send.
+        NSMicrophoneUsageDescription: ReSky uses the microphone for voice and video calls.
+        NSPhotoLibraryUsageDescription: ReSky lets you choose photos and videos to send or use on your profile.
+        NSPhotoLibraryAddUsageDescription: ReSky saves photos and videos you choose to your library.
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    dependencies:
+      - package: Supabase
+        product: Supabase
+      - package: LiveKit
+        product: LiveKit
+
+  ReSkyTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: ReSky
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/ReSky.app/ReSky
+        BUNDLE_LOADER: $(TEST_HOST)
+
+schemes:
+  ReSky:
+    build:
+      targets:
+        ReSky: all
+        ReSkyTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets: [ReSkyTests]
+    archive:
+      config: Release

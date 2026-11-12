@@ -1,0 +1,6 @@
+// Values are injected by Codemagic into Secrets.xcconfig (see codemagic.yaml).
+// For local builds copy Secrets.example.xcconfig to Secrets.xcconfig.
+// NOTE: xcconfig treats "//" as a comment, so store the HOST only (no https://).
+SUPABASE_HOST = not-configured.invalid
+SUPABASE_ANON_KEY = not-configured
+#include? "Secrets.xcconfig"
